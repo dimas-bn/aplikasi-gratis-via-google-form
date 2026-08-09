@@ -8,6 +8,16 @@
 <meta property="og:title" content="Ceritain Masalahmu — Dimas BN">
 <meta property="og:description" content="Punya masalah yang bikin ribet setiap hari? Ceritain ke saya. Kalau relate buat banyak orang, saya buatkan aplikasinya — gratis, tanpa tapi.">
 <meta property="og:type" content="website">
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#060b18">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CeritaIn">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -317,6 +327,86 @@
     .btn-row{ flex-direction:column; }
   }
 
+  /* ---------- PWA BANNERS (install / notification) ---------- */
+  .sys-banner{
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    max-width: 480px;
+    margin: 0 auto;
+    background: linear-gradient(180deg, #101c34, #0a1120);
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    padding: 18px 18px 16px;
+    box-shadow: 0 0 50px rgba(0,229,255,0.12), 0 20px 45px rgba(0,0,0,0.55);
+    z-index: 999;
+    display: none;
+    animation: slideUp 0.4s ease;
+  }
+  .sys-banner.show{ display:block; }
+  @keyframes slideUp{
+    from{ transform: translateY(24px); opacity:0; }
+    to{ transform: translateY(0); opacity:1; }
+  }
+  .sys-banner-top{
+    display:flex;
+    align-items:flex-start;
+    gap: 12px;
+  }
+  .sys-icon{
+    flex-shrink:0;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--cyan), var(--magenta));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 1.1rem;
+  }
+  .sys-banner-title{
+    font-family:'Orbitron', sans-serif;
+    font-size: 0.82rem;
+    letter-spacing: 0.5px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .sys-banner-desc{
+    font-size: 0.92rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .sys-banner-actions{
+    display:flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .sys-btn{
+    flex:1;
+    text-align:center;
+    padding: 10px 14px;
+    border-radius: 9px;
+    font-family:'Orbitron', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+  }
+  .sys-btn-accept{
+    background: linear-gradient(120deg, var(--cyan), var(--magenta));
+    color: #04070f;
+  }
+  .sys-btn-accept:hover{ transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,229,255,0.3); }
+  .sys-btn-dismiss{
+    background: rgba(255,255,255,0.04);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .sys-btn-dismiss:hover{ color: var(--text); border-color: var(--border-strong); }
+
   @media (prefers-reduced-motion: reduce){
     *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
     html{ scroll-behavior:auto; }
@@ -419,6 +509,36 @@
   <p>&copy; <span id="year"></span> Dimas BN — dibuat sambil ngajar, buat siapa pun yang butuh solusinya.</p>
 </footer>
 
+<!-- Install App banner -->
+<div class="sys-banner" id="installBanner">
+  <div class="sys-banner-top">
+    <div class="sys-icon">📲</div>
+    <div>
+      <div class="sys-banner-title">PASANG DI LAYAR UTAMA</div>
+      <div class="sys-banner-desc">Buka lebih cepat tanpa browser. Ringan, dan tetap bisa diakses walau sinyal lagi jelek.</div>
+    </div>
+  </div>
+  <div class="sys-banner-actions">
+    <button class="sys-btn sys-btn-dismiss" id="installDismiss">Nanti Aja</button>
+    <button class="sys-btn sys-btn-accept" id="installAccept">Pasang</button>
+  </div>
+</div>
+
+<!-- Notification permission banner -->
+<div class="sys-banner" id="notifBanner">
+  <div class="sys-banner-top">
+    <div class="sys-icon">🔔</div>
+    <div>
+      <div class="sys-banner-title">AKTIFKAN NOTIFIKASI</div>
+      <div class="sys-banner-desc">Dapat kabar kalau ceritamu jadi inspirasi aplikasi baru — nggak spam, cuma yang penting.</div>
+    </div>
+  </div>
+  <div class="sys-banner-actions">
+    <button class="sys-btn sys-btn-dismiss" id="notifDismiss">Nanti Aja</button>
+    <button class="sys-btn sys-btn-accept" id="notifAccept">Aktifkan</button>
+  </div>
+</div>
+
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -470,6 +590,101 @@
 
     typeLoop();
   })();
+
+  // ---------- PWA: service worker ----------
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("service-worker.js").catch(function (err) {
+        console.warn("Service worker gagal daftar:", err);
+      });
+    });
+  }
+
+  // ---------- PWA: install banner ----------
+  var deferredInstallPrompt = null;
+  var installBanner = document.getElementById("installBanner");
+  var notifBanner = document.getElementById("notifBanner");
+  var DISMISS_DAYS = 7;
+
+  function isStandalone() {
+    return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  }
+
+  function wasDismissedRecently(key) {
+    var raw = localStorage.getItem(key);
+    if (!raw) return false;
+    var elapsedDays = (Date.now() - parseInt(raw, 10)) / (1000 * 60 * 60 * 24);
+    return elapsedDays < DISMISS_DAYS;
+  }
+
+  function markDismissed(key) {
+    localStorage.setItem(key, String(Date.now()));
+  }
+
+  function tryShowNotifBanner() {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "default") return;
+    if (wasDismissedRecently("notifDismissedAt")) return;
+    notifBanner.classList.add("show");
+  }
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if (isStandalone() || wasDismissedRecently("installDismissedAt")) return;
+    setTimeout(function () {
+      installBanner.classList.add("show");
+    }, 2500);
+  });
+
+  document.getElementById("installAccept").addEventListener("click", function () {
+    installBanner.classList.remove("show");
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      deferredInstallPrompt.userChoice.finally(function () {
+        deferredInstallPrompt = null;
+        setTimeout(tryShowNotifBanner, 1200);
+      });
+    } else {
+      setTimeout(tryShowNotifBanner, 1200);
+    }
+  });
+
+  document.getElementById("installDismiss").addEventListener("click", function () {
+    installBanner.classList.remove("show");
+    markDismissed("installDismissedAt");
+    setTimeout(tryShowNotifBanner, 1200);
+  });
+
+  // Kalau beforeinstallprompt nggak pernah muncul (misal sudah terpasang / browser tidak dukung),
+  // tetap tawarkan notifikasi setelah beberapa saat.
+  setTimeout(function () {
+    if (!installBanner.classList.contains("show")) tryShowNotifBanner();
+  }, 5000);
+
+  // ---------- PWA: notification permission ----------
+  document.getElementById("notifAccept").addEventListener("click", function () {
+    notifBanner.classList.remove("show");
+    if (!("Notification" in window)) return;
+    Notification.requestPermission().then(function (permission) {
+      if (permission !== "granted") return;
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.ready.then(function (reg) {
+          reg.showNotification("Notifikasi aktif ✓", {
+            body: "Nanti kalau ceritamu jadi inspirasi aplikasi baru, kamu bakal dikabari di sini.",
+            icon: "icons/icon-192.png",
+            badge: "icons/icon-192.png",
+            data: { url: "./index.html" }
+          });
+        });
+      }
+    });
+  });
+
+  document.getElementById("notifDismiss").addEventListener("click", function () {
+    notifBanner.classList.remove("show");
+    markDismissed("notifDismissedAt");
+  });
 </script>
 
 </body>
